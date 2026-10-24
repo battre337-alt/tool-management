@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>スマート工具・備品管理 App</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JsBarcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- html5-qrcode -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        body { font-family: 'Inter', 'Noto Sans JP', sans-serif; -webkit-tap-highlight-color: transparent; }
+        
+        /* Custom Scrollbar for better UI on mobile/desktop */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 9999px; }
+        
+        /* Print layout optimization for sticker sheets */
+        @media print {
+            body * { visibility: hidden !important; }
+            #print-area, #print-area * { visibility: visible !important; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; display: grid !important; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-full flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-800/90 backdrop-blur-md border-b border-slate-700/60 sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20 text-white">
+                    <i class="fa-solid fa-screwdriver-wrench text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base sm:text-lg leading-tight tracking-wide text-white">工具・備品管理 App</h1>
+                    <p class="text-[11px] text-slate-400 font-medium">バーコード・スキャナー完全連動</p>
+                </div>
+            </div>
+
+            <!-- Quick Top Action Buttons -->
+            <div class="flex items-center space-x-2">
+                <button onclick="switchTab('scan')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-1.5 shadow-md shadow-emerald-900/30 transition active:scale-95">
+                    <i class="fa-solid fa-qrcode text-base"></i>
+                    <span class="hidden sm:inline">スキャナー</span>
+                </button>
+                <button onclick="openEditModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-1.5 shadow-md shadow-indigo-900/30 transition active:scale-95">
+                    <i class="fa-solid fa-plus text-base"></i>
+                    <span class="hidden sm:inline">新規追加</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Bar Navigation (Responsive) -->
+        <nav class="flex border-t border-slate-700/50 bg-slate-800/50 px-2 sm:px-6 overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('list')" id="tab-btn-list" class="tab-btn flex-1 min-w-[80px] py-2.5 px-3 text-center text-xs sm:text-sm font-medium text-indigo-400 border-b-2 border-indigo-500 flex items-center justify-center space-x-1.5 transition">
+                <i class="fa-solid fa-boxes-stacked"></i><span>📦 工具一覧</span>
+            </button>
+            <button onclick="switchTab('scan')" id="tab-btn-scan" class="tab-btn flex-1 min-w-[80px] py-2.5 px-3 text-center text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition">
+                <i class="fa-solid fa-camera"></i><span>📸 カメラ受発注</span>
+            </button>
+            <button onclick="switchTab('history')" id="tab-btn-history" class="tab-btn flex-1 min-w-[80px] py-2.5 px-3 text-center text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition">
+                <i class="fa-solid fa-clock-rotate-left"></i><span>📜 履歴</span>
+            </button>
+            <button onclick="switchTab('labels')" id="tab-btn-labels" class="tab-btn flex-1 min-w-[80px] py-2.5 px-3 text-center text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition">
+                <i class="fa-solid fa-print"></i><span>🏷️ ラベル印刷</span>
+            </button>
+            <button onclick="switchTab('settings')" id="tab-btn-settings" class="tab-btn flex-1 min-w-[80px] py-2.5 px-3 text-center text-xs sm:text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition">
+                <i class="fa-solid fa-sliders"></i><span>⚙️ 設定・データ</span>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 space-y-5 no-print">
+
+        <!-- Stat Cards Summary Bar -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+            <div onclick="filterByStat('')" class="cursor-pointer bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 p-3.5 rounded-2xl shadow-sm transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-slate-400 group-hover:text-slate-200">総登録数</span>
+                    <i class="fa-solid fa-cubes text-slate-500 text-sm"></i>
+                </div>
+                <div id="stat-total" class="text-2xl font-bold text-white mt-1">0</div>
+            </div>
+            <div onclick="filterByStat('利用可能')" class="cursor-pointer bg-slate-800/80 hover:bg-slate-800 border border-emerald-500/20 p-3.5 rounded-2xl shadow-sm transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-emerald-400">利用可能</span>
+                    <i class="fa-solid fa-circle-check text-emerald-500/80 text-sm"></i>
+                </div>
+                <div id="stat-available" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+            </div>
+            <div onclick="filterByStat('貸出中')" class="cursor-pointer bg-slate-800/80 hover:bg-slate-800 border border-amber-500/20 p-3.5 rounded-2xl shadow-sm transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-amber-400">貸出中</span>
+                    <i class="fa-solid fa-handshake text-amber-500/80 text-sm"></i>
+                </div>
+                <div id="stat-borrowed" class="text-2xl font-bold text-amber-400 mt-1">0</div>
+            </div>
+            <div onclick="filterByStat('点検中')" class="cursor-pointer bg-slate-800/80 hover:bg-slate-800 border border-rose-500/20 p-3.5 rounded-2xl shadow-sm transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-rose-400">点検・修理中</span>
+                    <i class="fa-solid fa-wrench text-rose-500/80 text-sm"></i>
+                </div>
+                <div id="stat-maintenance" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+            </div>
+        </div>
+
+        <!-- VIEW 1: TOOL LIST & QUICK ACTIONS -->
+        <section id="view-list" class="tab-view space-y-4">
+            <!-- Search & Filter Controls -->
+            <div class="bg-slate-800 p-3.5 sm:p-4 rounded-2xl border border-slate-700/60 shadow-lg space-y-3">
+                <div class="flex flex-col md:flex-row gap-2.5">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+                        <input type="text" id="search-input" oninput="renderToolList()" placeholder="工具名、バーコードID、型番、保管場所、貸出者で検索..." 
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="filter-category" onchange="renderToolList()" class="flex-1 md:w-40 px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs sm:text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">全てのカテゴリ</option>
+                            <option value="電動工具">電動工具</option>
+                            <option value="手工具">手工具</option>
+                            <option value="測定器">測定器</option>
+                            <option value="切削工具">切削工具</option>
+                            <option value="安全用品">安全用品</option>
+                            <option value="その他">その他</option>
+                        </select>
+                        <select id="filter-status" onchange="renderToolList()" class="flex-1 md:w-36 px-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs sm:text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">全ての状態</option>
+                            <option value="利用可能">利用可能</option>
+                            <option value="貸出中">貸出中</option>
+                            <option value="点検中">点検・修理中</option>
+                            <option value="廃番">廃番・廃棄</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Fast Demo Barcode Shortcuts -->
+                <div class="pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs text-slate-400 flex-wrap gap-1.5">
+                    <span class="font-medium text-slate-300"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i>クイックテストタップ:</span>
+                    <div id="quick-demo-tags" class="flex flex-wrap gap-1"></div>
+                </div>
+            </div>
+
+            <!-- Tool Cards / Table View Container -->
+            <div id="tools-container" class="space-y-3">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Empty Placeholder -->
+            <div id="empty-state" class="hidden py-16 text-center bg-slate-800/50 rounded-2xl border border-dashed border-slate-700">
+                <i class="fa-solid fa-toolbox text-5xl text-slate-600 mb-3"></i>
+                <p class="text-base font-semibold text-slate-300">該当する工具は見つかりませんでした</p>
+                <p class="text-xs text-slate-500 mt-1">「新規追加」ボタンから工具を登録してください。</p>
+            </div>
+        </section>
+
+        <!-- VIEW 2: HIGH SPEED SCANNER PAGE -->
+        <section id="view-scan" class="tab-view hidden space-y-4">
+            <div class="bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700/80 shadow-2xl max-w-2xl mx-auto space-y-4">
+                <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                    <div>
+                        <h2 class="font-bold text-lg text-white flex items-center"><i class="fa-solid fa-barcode text-emerald-400 mr-2"></i>スマートバーコード/QRスキャナー</h2>
+                        <p class="text-xs text-slate-400">カメラかキーボードスキャナでコードを読み取ってください</p>
+                    </div>
+                    <span id="scan-mode-indicator" class="text-xs bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-full animate-pulse font-medium">カメラ準備中</span>
+                </div>
+
+                <!-- Camera Viewfinder Box -->
+                <div class="relative bg-black rounded-2xl overflow-hidden aspect-video border-2 border-emerald-500/30 flex items-center justify-center">
+                    <div id="camera-reader" class="w-full h-full"></div>
+                    <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                        <div class="w-56 h-36 border-2 border-emerald-400 rounded-xl animate-pulse shadow-[0_0_15px_rgba(52,211,153,0.3)]"></div>
+                        <p class="text-xs font-semibold text-white bg-slate-900/80 px-3 py-1 rounded-full mt-3 backdrop-blur-sm">枠内にバーコードを合わせてください</p>
+                    </div>
+                </div>
+
+                <!-- Manual / USB Keyboard Scanner Input Box -->
+                <form onsubmit="handleManualScanSubmit(event)" class="flex space-x-2">
+                    <input type="text" id="manual-scan-input" placeholder="管理ID/バーコードを直接打鍵・手入力..." 
+                        class="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition">照合</button>
+                </form>
+
+                <!-- Scanned Result Action Card -->
+                <div id="scan-result-card" class="hidden p-4 rounded-xl border border-slate-700 bg-slate-900/80 space-y-3">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 3: TRANSACTION HISTORY -->
+        <section id="view-history" class="tab-view hidden space-y-4">
+            <div class="bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700/80 shadow-lg space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                    <h2 class="font-bold text-white text-base flex items-center">
+                        <i class="fa-solid fa-clock-rotate-left mr-2 text-indigo-400"></i>貸出・返却・点検アクティビティ履歴
+                    </h2>
+                    <button onclick="clearHistoryLog()" class="text-xs text-rose-400 hover:underline">履歴クリア</button>
+                </div>
+                <div id="history-log-container" class="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                    <!-- History rows -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 4: LABEL PRINTING SHEET -->
+        <section id="view-labels" class="tab-view hidden space-y-4">
+            <div class="bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700/80 shadow-lg space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700 pb-3">
+                    <div>
+                        <h2 class="font-bold text-white text-base"><i class="fa-solid fa-print text-indigo-400 mr-2"></i>バーコードシール一括生成・印刷</h2>
+                        <p class="text-xs text-slate-400">印刷したい工具を選択し、印刷ボタンを押してください</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="selectAllForPrint(true)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">全選択</button>
+                        <button onclick="selectAllForPrint(false)" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">解除</button>
+                        <button onclick="triggerPrintLabelSheet()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold px-4 py-1.5 rounded-lg flex items-center space-x-1 shadow">
+                            <i class="fa-solid fa-print"></i><span>印刷実行</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="label-selection-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 5: SETTINGS & DATA MANAGEMENT -->
+        <section id="view-settings" class="tab-view hidden space-y-4">
+            <div class="bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700/80 shadow-lg space-y-6 max-w-3xl mx-auto">
+                <h2 class="font-bold text-white text-lg border-b border-slate-700 pb-3"><i class="fa-solid fa-sliders text-indigo-400 mr-2"></i>データ・環境設定</h2>
+
+                <!-- CSV Export/Import -->
+                <div class="space-y-3">
+                    <h3 class="font-semibold text-sm text-slate-200">CSVデータ連携</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="exportCSVData()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center space-x-2 shadow">
+                            <i class="fa-solid fa-file-export"></i><span>CSVで全工具を出力</span>
+                        </button>
+                        <label class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center space-x-2 cursor-pointer transition">
+                            <i class="fa-solid fa-file-import"></i><span>CSVファイルから取込</span>
+                            <input type="file" accept=".csv" onchange="importCSVData(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Audio / Haptic feedback settings -->
+                <div class="space-y-3 border-t border-slate-700 pt-4">
+                    <h3 class="font-semibold text-sm text-slate-200">スキャン時フィードバック設定</h3>
+                    <div class="flex items-center space-x-6">
+                        <label class="flex items-center space-x-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="setting-sound" checked class="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900">
+                            <span>効果音を鳴らす (Sound API)</span>
+                        </label>
+                        <label class="flex items-center space-x-2 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="setting-vibration" checked class="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900">
+                            <span>バイブレーション振動 (Vibration API)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Reset Data -->
+                <div class="space-y-3 border-t border-slate-700 pt-4">
+                    <h3 class="font-semibold text-sm text-rose-400">危険ゾーン</h3>
+                    <button onclick="resetToDefaultSeedData()" class="bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-4 py-2.5 rounded-xl text-sm font-medium transition">
+                        <i class="fa-solid fa-rotate-left mr-2"></i>初期サンプルデータにリセット
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL 1: ADD / EDIT TOOL (EASY FULL EDITING MODAL) -->
+    <div id="modal-edit-tool" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl max-w-xl w-full overflow-hidden flex flex-col my-auto animate-in zoom-in duration-150">
+            <div class="px-5 py-4 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
+                <h3 id="modal-edit-title" class="font-bold text-white text-base sm:text-lg flex items-center">
+                    <i class="fa-solid fa-pen-to-square text-indigo-400 mr-2"></i>工具情報の追加・編集
+                </h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white p-1 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form id="edit-tool-form" onsubmit="saveToolForm(event)" class="p-5 space-y-4 text-xs sm:text-sm text-slate-300 max-h-[80vh] overflow-y-auto">
+                <input type="hidden" id="form-original-id">
+
+                <!-- Tool Image Preview & URL -->
+                <div class="bg-slate-900/60 p-3 rounded-2xl border border-slate-700 flex flex-col sm:flex-row items-center gap-3">
+                    <div class="w-20 h-20 rounded-xl bg-slate-800 border border-slate-700 overflow-hidden flex items-center justify-center flex-shrink-0">
+                        <img id="form-img-preview" src="" alt="" class="w-full h-full object-cover hidden" onerror="this.classList.add('hidden')">
+                        <i id="form-img-placeholder" class="fa-solid fa-image text-2xl text-slate-600"></i>
+                    </div>
+                    <div class="flex-1 w-full space-y-1.5">
+                        <label class="block font-medium text-slate-300">画像URL (またはサンプル選択)</label>
+                        <input type="url" id="form-img-url" oninput="updateImagePreview(this.value)" placeholder="https://example.com/tool.jpg" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block font-semibold text-slate-300 mb-1">工具名 <span class="text-rose-400">*</span></label>
+                        <input type="text" id="form-name" required placeholder="例: 充電式インパクトドライバ 18V" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">管理ID / バーコードコード <span class="text-rose-400">*</span></label>
+                        <div class="flex space-x-1.5">
+                            <input type="text" id="form-id" required placeholder="TOOL-1001" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl font-mono text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase">
+                            <button type="button" onclick="generateAutoBarcodeID()" title="自動生成" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded-xl font-bold transition flex-shrink-0">AUTO</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">カテゴリ <span class="text-rose-400">*</span></label>
+                        <select id="form-category" required class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="電動工具">電動工具</option>
+                            <option value="手工具">手工具</option>
+                            <option value="測定器">測定器</option>
+                            <option value="切削工具">切削工具</option>
+                            <option value="安全用品">安全用品</option>
+                            <option value="その他">その他</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">保管場所・棚番号 <span class="text-rose-400">*</span></label>
+                        <input type="text" id="form-location" required placeholder="例: A棚-2" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">現在の状態</label>
+                        <select id="form-status" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="利用可能">利用可能</option>
+                            <option value="貸出中">貸出中</option>
+                            <option value="点検中">点検・修理中</option>
+                            <option value="廃番">廃番・廃棄</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">型番・メーカー</label>
+                        <input type="text" id="form-model" placeholder="例: TD173DRGX (マキタ)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">購入日 / 点検周期</label>
+                        <input type="date" id="form-purchase-date" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">備考 / 仕様メモ</label>
+                    <textarea id="form-notes" rows="2" placeholder="注意事項やメンテナンスの引き継ぎメモなど..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+
+                <!-- Submit Buttons -->
+                <div class="pt-3 border-t border-slate-700 flex justify-end space-x-2">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-700 transition">キャンセル</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-900/30 transition">保存する</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CHECKOUT / RETURN / MAINTENANCE ACTION MODAL -->
+    <div id="modal-action-tool" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-4 my-auto animate-in zoom-in duration-150">
+            <div class="flex justify-between items-start border-b border-slate-700 pb-3">
+                <div>
+                    <span id="action-modal-badge" class="text-xs px-2.5 py-0.5 rounded-full font-bold"></span>
+                    <h3 id="action-modal-tool-name" class="font-bold text-white text-lg mt-1"></h3>
+                    <p id="action-modal-tool-id" class="text-xs font-mono text-slate-400"></p>
+                </div>
+                <button onclick="closeActionModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div id="action-modal-content" class="space-y-4">
+                <!-- Dynamically swapped depending on action type (Borrow / Return / Maintenance) -->
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT SHEET HIDDEN CONTAINER -->
+    <div id="print-area" class="hidden grid-cols-3 gap-3 p-4 bg-white text-black"></div>
+
+    <!-- NOTIFICATION TOAST -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-3 pointer-events-none">
+        <div id="toast-icon-bg" class="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <i id="toast-icon" class="fa-solid fa-check"></i>
+        </div>
+        <span id="toast-message" class="text-sm font-medium"></span>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // Web Audio Synthesis for Scan Feedback Sound
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playFeedbackSound(type) {
+            const isSoundEnabled = document.getElementById('setting-sound')?.checked ?? true;
+            if (!isSoundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'success') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); // E5
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.25);
+                } else {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                }
+            } catch(e) {}
+        }
+
+        function triggerVibration() {
+            const isVibeEnabled = document.getElementById('setting-vibration')?.checked ?? true;
+            if (isVibeEnabled && navigator.vibrate) {
+                navigator.vibrate(80);
+            }
+        }
+
+        // Seed Tools Data
+        const seedTools = [
+            { id: 'TOOL-1001', name: '18V インパクトドライバ', category: '電動工具', location: 'A棚-1', status: '利用可能', model: 'TD173DRGX (マキタ)', borrower: '', project: '', dueDate: '', img: '', notes: '予備バッテリー2個・ケース付' },
+            { id: 'TOOL-1002', name: 'デジタルノギス 150mm', category: '測定器', location: 'B棚-2', status: '貸出中', model: 'CD-15AX (ミツトヨ)', borrower: '佐藤 健太', project: '第1工場検査ライン', dueDate: '2026-10-25', img: '', notes: '精密機器扱い' },
+            { id: 'TOOL-1003', name: 'トルクレンチ 1/2" 140N・m', category: '手工具', location: 'A棚-3', status: '利用可能', model: 'QL140N (トーニチ)', borrower: '', project: '', dueDate: '', img: '', notes: '校正証明書あり' },
+            { id: 'TOOL-1004', name: '100mm ディスクグラインダ', category: '電動工具', location: 'C棚-1', status: '点検中', model: 'G10VE (HiKOKI)', borrower: '', project: '', dueDate: '', img: '', notes: 'スイッチ感触不良につき点検中' },
+            { id: 'TOOL-1005', name: 'レーザー墨出し器', category: '測定器', location: 'B棚-1', status: '利用可能', model: 'ZERO-KJC (タジマ)', borrower: '', project: '', dueDate: '', img: '', notes: '受光器付属' }
+        ];
+
+        let tools = JSON.parse(localStorage.getItem('smart_tools_app_data')) || seedTools;
+        let historyLogs = JSON.parse(localStorage.getItem('smart_tools_app_history')) || [];
+        let cameraScanner = null;
+        let selectedActionToolId = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            saveState();
+            renderToolList();
+            renderHistoryLogs();
+            renderLabelGrid();
+        });
+
+        function saveState() {
+            localStorage.setItem('smart_tools_app_data', JSON.stringify(tools));
+            localStorage.setItem('smart_tools_app_history', JSON.stringify(historyLogs));
+        }
+
+        // TAB SWITCHING LOGIC
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-indigo-400', 'border-indigo-500');
+                btn.classList.add('text-slate-400', 'border-transparent');
+            });
+
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            activeBtn.classList.remove('text-slate-400', 'border-transparent');
+            activeBtn.classList.add('text-indigo-400', 'border-indigo-500');
+
+            if (tabName === 'scan') {
+                initCameraScanner();
+            } else {
+                stopCameraScanner();
+            }
+
+            if (tabName === 'labels') {
+                renderLabelGrid();
+            }
+        }
+
+        // TOOL LIST RENDERER
+        function renderToolList() {
+            const container = document.getElementById('tools-container');
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const filterCat = document.getElementById('filter-category').value;
+            const filterStat = document.getElementById('filter-status').value;
+
+            const filtered = tools.filter(t => {
+                const matchSearch = t.name.toLowerCase().includes(search) ||
+                                    t.id.toLowerCase().includes(search) ||
+                                    (t.model && t.model.toLowerCase().includes(search)) ||
+                                    t.location.toLowerCase().includes(search) ||
+                                    (t.borrower && t.borrower.toLowerCase().includes(search));
+                const matchCat = !filterCat || t.category === filterCat;
+                const matchStat = !filterStat || t.status === filterStat;
+                return matchSearch && matchCat && matchStat;
+            });
+
+            // Summary stats update
+            document.getElementById('stat-total').innerText = tools.length;
+            document.getElementById('stat-available').innerText = tools.filter(t => t.status === '利用可能').length;
+            document.getElementById('stat-borrowed').innerText = tools.filter(t => t.status === '貸出中').length;
+            document.getElementById('stat-maintenance').innerText = tools.filter(t => t.status === '点検中').length;
+
+            // Quick demo buttons
+            document.getElementById('quick-demo-tags').innerHTML = tools.slice(0, 5).map(t => `
+                <button onclick="quickScanSelect('${t.id}')" class="px-2 py-0.5 rounded bg-slate-900 hover:bg-indigo-950 text-indigo-300 font-mono text-[11px] border border-slate-700 transition">
+                    ${t.id}
+                </button>
+            `).join('');
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                document.getElementById('empty-state').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('empty-state').classList.add('hidden');
+
+            container.innerHTML = filtered.map(t => {
+                let badgeClass = 'bg-emerald-950/80 text-emerald-400 border-emerald-800';
+                if (t.status === '貸出中') badgeClass = 'bg-amber-950/80 text-amber-400 border-amber-800';
+                if (t.status === '点検中') badgeClass = 'bg-rose-950/80 text-rose-400 border-rose-800';
+                if (t.status === '廃番') badgeClass = 'bg-slate-900 text-slate-500 border-slate-700';
+
+                return `
+                    <div class="bg-slate-800/90 border border-slate-700/70 hover:border-slate-600 rounded-2xl p-4 shadow-sm transition space-y-3">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center flex-shrink-0">
+                                    ${t.img ? `<img src="${t.img}" class="w-full h-full object-cover rounded-xl" onerror="this.src=''; this.classList.add('hidden')">` : `<i class="fa-solid fa-wrench text-slate-500 text-lg"></i>`}
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <h3 class="font-bold text-white text-base">${escapeHtml(t.name)}</h3>
+                                        <button onclick="openEditModal('${t.id}')" title="工具情報を編集" class="text-indigo-400 hover:text-indigo-300 text-xs px-2 py-0.5 rounded bg-indigo-950/80 border border-indigo-800/80 flex items-center space-x-1">
+                                            <i class="fa-solid fa-pen-to-square"></i><span>編集</span>
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-slate-400 font-mono">${t.id} <span class="text-slate-600">|</span> ${escapeHtml(t.model || '型番なし')}</p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-2 self-end sm:self-auto">
+                                <!-- Direct Inline Status Selector -->
+                                <select onchange="changeToolStatusDirect('${t.id}', this.value)" class="text-xs px-2.5 py-1 rounded-full font-semibold border ${badgeClass} bg-slate-900 outline-none cursor-pointer">
+                                    <option value="利用可能" ${t.status === '利用可能' ? 'selected' : ''}>利用可能</option>
+                                    <option value="貸出中" ${t.status === '貸出中' ? 'selected' : ''}>貸出中</option>
+                                    <option value="点検中" ${t.status === '点検中' ? 'selected' : ''}>点検・修理中</option>
+                                    <option value="廃番" ${t.status === '廃番' ? 'selected' : ''}>廃番</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Details Subrow -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/50 text-slate-300">
+                            <div><span class="text-slate-500">カテゴリ:</span> ${escapeHtml(t.category)}</div>
+                            <div><span class="text-slate-500">保管場所:</span> <strong class="text-slate-200">${escapeHtml(t.location)}</strong></div>
+                            <div class="col-span-2 sm:col-span-2">
+                                ${t.status === '貸出中' ? `
+                                    <span class="text-amber-400 font-semibold"><i class="fa-solid fa-user mr-1"></i>${escapeHtml(t.borrower || '未設定')}</span> 
+                                    <span class="text-slate-500">(${escapeHtml(t.project || '現場未指定')})</span>
+                                ` : `<span class="text-slate-500">メモ: ${escapeHtml(t.notes || '-')}</span>`}
+                            </div>
+                        </div>
+
+                        <!-- Action Toolbar -->
+                        <div class="flex items-center justify-between pt-1 text-xs">
+                            <div class="flex space-x-1.5">
+                                ${t.status === '利用可能' ? `
+                                    <button onclick="openActionModal('${t.id}', 'borrow')" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg font-semibold shadow flex items-center space-x-1">
+                                        <i class="fa-solid fa-handshake"></i><span>貸出する</span>
+                                    </button>
+                                ` : t.status === '貸出中' ? `
+                                    <button onclick="openActionModal('${t.id}', 'return')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-semibold shadow flex items-center space-x-1">
+                                        <i class="fa-solid fa-rotate-left"></i><span>返却手続き</span>
+                                    </button>
+                                ` : ''}
+                                <button onclick="openActionModal('${t.id}', 'maintenance')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg font-medium">
+                                    <i class="fa-solid fa-wrench mr-1"></i>点検記録
+                                </button>
+                            </div>
+
+                            <div class="flex items-center space-x-1">
+                                <button onclick="duplicateTool('${t.id}')" title="複製して登録" class="p-1.5 text-slate-400 hover:text-indigo-400"><i class="fa-solid fa-copy"></i></button>
+                                <button onclick="deleteTool('${t.id}')" title="削除" class="p-1.5 text-slate-400 hover:text-rose-400"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterByStat(stat) {
+            document.getElementById('filter-status').value = stat;
+            switchTab('list');
+            renderToolList();
+        }
+
+        // EASY TOOL EDITING / CREATION LOGIC
+        function openEditModal(id = null) {
+            const form = document.getElementById('edit-tool-form');
+            form.reset();
+            document.getElementById('form-img-preview').classList.add('hidden');
+            document.getElementById('form-img-placeholder').classList.remove('hidden');
+
+            if (id) {
+                const tool = tools.find(t => t.id === id);
+                if (!tool) return;
+                document.getElementById('modal-edit-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-400 mr-2"></i>「${escapeHtml(tool.name)}」の編集`;
+                document.getElementById('form-original-id').value = tool.id;
+                document.getElementById('form-name').value = tool.name;
+                document.getElementById('form-id').value = tool.id;
+                document.getElementById('form-category').value = tool.category;
+                document.getElementById('form-location').value = tool.location;
+                document.getElementById('form-status').value = tool.status;
+                document.getElementById('form-model').value = tool.model || '';
+                document.getElementById('form-purchase-date').value = tool.purchaseDate || '';
+                document.getElementById('form-notes').value = tool.notes || '';
+                document.getElementById('form-img-url').value = tool.img || '';
+                if (tool.img) updateImagePreview(tool.img);
+            } else {
+                document.getElementById('modal-edit-title').innerHTML = `<i class="fa-solid fa-plus text-indigo-400 mr-2"></i>新規工具の追加`;
+                document.getElementById('form-original-id').value = '';
+                generateAutoBarcodeID();
+            }
+
+            document.getElementById('modal-edit-tool').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('modal-edit-tool').classList.add('hidden');
+        }
+
+        function generateAutoBarcodeID() {
+            const randomNum = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('form-id').value = `TOOL-${randomNum}`;
+        }
+
+        function updateImagePreview(url) {
+            const img = document.getElementById('form-img-preview');
+            const placeholder = document.getElementById('form-img-placeholder');
+            if (url) {
+                img.src = url;
+                img.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            } else {
+                img.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+            }
+        }
+
+        function saveToolForm(e) {
+            e.preventDefault();
+            const originalId = document.getElementById('form-original-id').value;
+            const newId = document.getElementById('form-id').value.trim().toUpperCase();
+            const name = document.getElementById('form-name').value.trim();
+            const category = document.getElementById('form-category').value;
+            const location = document.getElementById('form-location').value.trim();
+            const status = document.getElementById('form-status').value;
+            const model = document.getElementById('form-model').value.trim();
+            const purchaseDate = document.getElementById('form-purchase-date').value;
+            const notes = document.getElementById('form-notes').value.trim();
+            const img = document.getElementById('form-img-url').value.trim();
+
+            if (!originalId && tools.some(t => t.id === newId)) {
+                showToast('この管理IDは既に登録されています', 'error');
+                return;
+            }
+
+            if (originalId) {
+                const idx = tools.findIndex(t => t.id === originalId);
+                if (idx !== -1) {
+                    tools[idx] = { ...tools[idx], id: newId, name, category, location, status, model, purchaseDate, notes, img };
+                }
+                showToast('工具情報を更新しました', 'success');
+            } else {
+                tools.unshift({ id: newId, name, category, location, status, model, purchaseDate, notes, img, borrower: '', project: '', dueDate: '' });
+                showToast('新しい工具を登録しました', 'success');
+            }
+
+            saveState();
+            renderToolList();
+            closeEditModal();
+        }
+
+        function duplicateTool(id) {
+            const tool = tools.find(t => t.id === id);
+            if (!tool) return;
+            openEditModal();
+            document.getElementById('form-name').value = `${tool.name} (コピー)`;
+            document.getElementById('form-category').value = tool.category;
+            document.getElementById('form-location').value = tool.location;
+            document.getElementById('form-model').value = tool.model || '';
+            document.getElementById('form-notes').value = tool.notes || '';
+            document.getElementById('form-img-url').value = tool.img || '';
+            generateAutoBarcodeID();
+            showToast('工具データをコピーしました', 'success');
+        }
+
+        function deleteTool(id) {
+            if (!confirm(`管理ID "${id}" の工具を削除しますか？`)) return;
+            tools = tools.filter(t => t.id !== id);
+            saveState();
+            renderToolList();
+            showToast('工具を削除しました', 'success');
+        }
+
+        function changeToolStatusDirect(id, newStatus) {
+            const tool = tools.find(t => t.id === id);
+            if (!tool) return;
+            tool.status = newStatus;
+            addHistoryLog(newStatus === '貸出中' ? '貸出' : newStatus === '利用可能' ? '返却' : 'ステータス変更', tool.id, tool.name, '-');
+            saveState();
+            renderToolList();
+            showToast(`ステータスを「${newStatus}」に変更しました`, 'success');
+        }
+
+        // ACTION MODAL (BORROW / RETURN / MAINTENANCE)
+        function openActionModal(id, actionType) {
+            const tool = tools.find(t => t.id === id);
+            if (!tool) return;
+            selectedActionToolId = id;
+
+            const badge = document.getElementById('action-modal-badge');
+            badge.innerText = tool.status;
+            badge.className = `text-xs px-2.5 py-0.5 rounded-full font-bold ${tool.status === '利用可能' ? 'bg-emerald-950 text-emerald-400' : 'bg-amber-950 text-amber-400'}`;
+            document.getElementById('action-modal-tool-name').innerText = tool.name;
+            document.getElementById('action-modal-tool-id').innerText = `${tool.id} (${tool.location})`;
+
+            const content = document.getElementById('action-modal-content');
+
+            if (actionType === 'borrow') {
+                content.innerHTML = `
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block font-semibold text-slate-300 text-xs mb-1">貸出者（氏名・部署） <span class="text-rose-400">*</span></label>
+                            <input type="text" id="action-borrower" placeholder="例: 山田 太郎 (製造一課)" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-300 text-xs mb-1">使用現場 / 用途</label>
+                            <input type="text" id="action-project" placeholder="例: B棟組み立てライン" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-300 text-xs mb-1">返却予定日</label>
+                            <input type="date" id="action-duedate" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        </div>
+                        <button onclick="confirmBorrowAction()" class="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl text-sm shadow transition">貸出を確定する</button>
+                    </div>
+                `;
+            } else if (actionType === 'return') {
+                content.innerHTML = `
+                    <div class="space-y-3 text-slate-300 text-xs">
+                        <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 space-y-1">
+                            <p><strong>現在の貸出者:</strong> ${escapeHtml(tool.borrower || '不明')}</p>
+                            <p><strong>現場:</strong> ${escapeHtml(tool.project || '未指定')}</p>
+                        </div>
+                        <div>
+                            <label class="block font-semibold text-slate-300 text-xs mb-1">返却時の工具状態</label>
+                            <select id="action-return-condition" class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm">
+                                <option value="正常">正常（問題なし）</option>
+                                <option value="要点検">異常あり（要点検・修理へ回す）</option>
+                            </select>
+                        </div>
+                        <button onclick="confirmReturnAction()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-sm shadow transition">返却完了</button>
+                    </div>
+                `;
+            } else if (actionType === 'maintenance') {
+                content.innerHTML = `
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block font-semibold text-slate-300 text-xs mb-1">点検・修理メモ</label>
+                            <textarea id="action-maint-notes" rows="3" placeholder="点検内容やパーツ交換の記録..." class="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm outline-none">${escapeHtml(tool.notes || '')}</textarea>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="confirmMaintAction('点検中')" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold rounded-xl text-xs">点検中隔層へ移動</button>
+                            <button onclick="confirmMaintAction('利用可能')" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs">点検完了（利用可能に復帰）</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('modal-action-tool').classList.remove('hidden');
+        }
+
+        function closeActionModal() {
+            document.getElementById('modal-action-tool').classList.add('hidden');
+        }
+
+        function confirmBorrowAction() {
+            const borrower = document.getElementById('action-borrower').value.trim();
+            const project = document.getElementById('action-project').value.trim();
+            const dueDate = document.getElementById('action-duedate').value;
+
+            if (!borrower) {
+                showToast('貸出者氏名を入力してください', 'error');
+                return;
+            }
+
+            const tool = tools.find(t => t.id === selectedActionToolId);
+            if (tool) {
+                tool.status = '貸出中';
+                tool.borrower = borrower;
+                tool.project = project;
+                tool.dueDate = dueDate;
+                addHistoryLog('貸出', tool.id, tool.name, borrower);
+                saveState();
+                renderToolList();
+                playFeedbackSound('success');
+                showToast(`${tool.name} を貸出しました`, 'success');
+            }
+            closeActionModal();
+        }
+
+        function confirmReturnAction() {
+            const condition = document.getElementById('action-return-condition').value;
+            const tool = tools.find(t => t.id === selectedActionToolId);
+            if (tool) {
+                const prevBorrower = tool.borrower;
+                tool.borrower = '';
+                tool.project = '';
+                tool.dueDate = '';
+
+                if (condition === '要点検') {
+                    tool.status = '点検中';
+                    showToast('返却完了（点検中ステータスに変更しました）', 'success');
+                } else {
+                    tool.status = '利用可能';
+                    showToast(`${tool.name} が返却されました`, 'success');
+                }
+
+                addHistoryLog('返却', tool.id, tool.name, prevBorrower);
+                saveState();
+                renderToolList();
+                playFeedbackSound('success');
+            }
+            closeActionModal();
+        }
+
+        function confirmMaintAction(targetStatus) {
+            const notes = document.getElementById('action-maint-notes').value.trim();
+            const tool = tools.find(t => t.id === selectedActionToolId);
+            if (tool) {
+                tool.status = targetStatus;
+                tool.notes = notes;
+                addHistoryLog('点検記録', tool.id, tool.name, '-');
+                saveState();
+                renderToolList();
+                showToast('点検記録を更新しました', 'success');
+            }
+            closeActionModal();
+        }
+
+        // CAMERA SCANNER CONTROLLER
+        function initCameraScanner() {
+            if (cameraScanner) return;
+            cameraScanner = new Html5Qrcode("camera-reader");
+            cameraScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 160 } },
+                (decodedText) => {
+                    handleScannedCode(decodedText);
+                },
+                () => {}
+            ).then(() => {
+                document.getElementById('scan-mode-indicator').innerText = 'カメラ動作中';
+            }).catch(err => {
+                document.getElementById('scan-mode-indicator').innerText = 'キーボード手入力モード';
+            });
+        }
+
+        function stopCameraScanner() {
+            if (cameraScanner && cameraScanner.isScanning) {
+                cameraScanner.stop().then(() => {
+                    cameraScanner = null;
+                }).catch(() => {});
+            }
+        }
+
+        function handleManualScanSubmit(e) {
+            e.preventDefault();
+            const code = document.getElementById('manual-scan-input').value.trim().toUpperCase();
+            if (code) handleScannedCode(code);
+        }
+
+        function quickScanSelect(code) {
+            switchTab('scan');
+            handleScannedCode(code);
+        }
+
+        function handleScannedCode(code) {
+            playFeedbackSound('success');
+            triggerVibration();
+
+            const cleanCode = code.trim().toUpperCase();
+            const tool = tools.find(t => t.id === cleanCode);
+            const card = document.getElementById('scan-result-card');
+
+            if (!tool) {
+                playFeedbackSound('error');
+                card.classList.remove('hidden');
+                card.innerHTML = `
+                    <div class="text-center py-3 space-y-2">
+                        <p class="text-rose-400 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>未登録のバーコード: ${escapeHtml(cleanCode)}</p>
+                        <button onclick="openEditModalWithID('${cleanCode}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold">
+                            このコードで新規工具を登録
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            card.classList.remove('hidden');
+            card.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-indigo-950 text-indigo-400 border border-indigo-800">${tool.status}</span>
+                            <h4 class="font-bold text-white text-base mt-1">${escapeHtml(tool.name)}</h4>
+                            <p class="text-xs font-mono text-slate-400">${tool.id} | 保管: ${escapeHtml(tool.location)}</p>
+                        </div>
+                        <button onclick="openEditModal('${tool.id}')" class="bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white px-3 py-1 rounded-lg text-xs flex items-center space-x-1">
+                            <i class="fa-solid fa-pen-to-square"></i><span>編集</span>
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-2 pt-2 border-t border-slate-800">
+                        ${tool.status === '利用可能' ? `
+                            <button onclick="openActionModal('${tool.id}', 'borrow')" class="flex-1 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow">
+                                貸出へ進む
+                            </button>
+                        ` : tool.status === '貸出中' ? `
+                            <button onclick="openActionModal('${tool.id}', 'return')" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow">
+                                返却手続きへ
+                            </button>
+                        ` : ''}
+                        <button onclick="openActionModal('${tool.id}', 'maintenance')" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-xs font-medium">
+                            点検メモ
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openEditModalWithID(code) {
+            openEditModal();
+            document.getElementById('form-id').value = code;
+        }
+
+        // HISTORY LOGGING
+        function addHistoryLog(type, toolId, toolName, user) {
+            const now = new Date();
+            const timeStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+            historyLogs.unshift({ type, toolId, toolName, user, timeStr });
+            saveState();
+            renderHistoryLogs();
+        }
+
+        function renderHistoryLogs() {
+            const container = document.getElementById('history-log-container');
+            if (historyLogs.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 italic py-4 text-center">アクティビティ履歴はありません</p>`;
+                return;
+            }
+            container.innerHTML = historyLogs.map(item => `
+                <div class="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-700/50 text-xs">
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2 py-0.5 rounded-full font-bold ${item.type === '貸出' ? 'bg-amber-950 text-amber-400' : 'bg-emerald-950 text-emerald-400'}">${item.type}</span>
+                        <span class="font-semibold text-slate-200">${escapeHtml(item.toolName)}</span>
+                        <span class="font-mono text-slate-500">(${item.toolId})</span>
+                    </div>
+                    <div class="text-right text-slate-400">
+                        <span>${escapeHtml(item.user)}</span> · <span class="text-slate-500">${item.timeStr}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistoryLog() {
+            if (!confirm('履歴を削除しますか？')) return;
+            historyLogs = [];
+            saveState();
+            renderHistoryLogs();
+        }
+
+        // BARCODE STICKER LABEL PRINTING
+        function renderLabelGrid() {
+            const grid = document.getElementById('label-selection-grid');
+            grid.innerHTML = tools.map((t, idx) => `
+                <div class="bg-slate-900 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
+                    <label class="flex items-center space-x-2.5 cursor-pointer flex-1 min-w-0">
+                        <input type="checkbox" value="${t.id}" class="label-print-checkbox rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-800">
+                        <div class="truncate">
+                            <p class="text-xs font-bold text-slate-200 truncate">${escapeHtml(t.name)}</p>
+                            <p class="text-[10px] font-mono text-slate-500">${t.id}</p>
+                        </div>
+                    </label>
+                </div>
+            `).join('');
+        }
+
+        function selectAllForPrint(check) {
+            document.querySelectorAll('.label-print-checkbox').forEach(cb => cb.checked = check);
+        }
+
+        function triggerPrintLabelSheet() {
+            const selectedIds = Array.from(document.querySelectorAll('.label-print-checkbox:checked')).map(cb => cb.value);
+            if (selectedIds.length === 0) {
+                showToast('印刷する工具を選択してください', 'error');
+                return;
+            }
+
+            const selectedTools = tools.filter(t => selectedIds.includes(t.id));
+            const printArea = document.getElementById('print-area');
+            printArea.innerHTML = selectedTools.map((t, idx) => `
+                <div class="border border-black p-2 text-center flex flex-col items-center justify-center bg-white text-black">
+                    <p class="text-[10px] font-bold truncate max-w-full">${escapeHtml(t.name)}</p>
+                    <svg id="bc-print-${idx}"></svg>
+                    <p class="text-[9px] font-mono">${t.id} | 棚: ${escapeHtml(t.location)}</p>
+                </div>
+            `).join('');
+
+            selectedTools.forEach((t, idx) => {
+                JsBarcode(`#bc-print-${idx}`, t.id, {
+                    format: "CODE128",
+                    width: 1.4,
+                    height: 35,
+                    displayValue: false,
+                    margin: 2
+                });
+            });
+
+            window.print();
+        }
+
+        // CSV DATA EXPORT / IMPORT
+        function exportCSVData() {
+            if (tools.length === 0) return;
+            let csv = "\uFEFF管理ID,工具名,カテゴリ,保管場所,状態,型番,購入日,備考\n";
+            tools.forEach(t => {
+                csv += `"${t.id}","${t.name}","${t.category}","${t.location}","${t.status}","${t.model||''}","${t.purchaseDate||''}","${t.notes||''}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `工具一覧_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+            showToast('CSVファイルをダウンロードしました', 'success');
+        }
+
+        function importCSVData(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const text = event.target.result;
+                const lines = text.split(/\r\n|\n/);
+                let count = 0;
+
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const cols = lines[i].split(',').map(c => c.replace(/^"|"$/g, '').trim());
+                    if (cols[0]) {
+                        const toolObj = {
+                            id: cols[0],
+                            name: cols[1] || '名称未設定',
+                            category: cols[2] || 'その他',
+                            location: cols[3] || '未指定',
+                            status: cols[4] || '利用可能',
+                            model: cols[5] || '',
+                            purchaseDate: cols[6] || '',
+                            notes: cols[7] || '',
+                            borrower: '', project: '', dueDate: ''
+                        };
+                        const existingIdx = tools.findIndex(t => t.id === cols[0]);
+                        if (existingIdx !== -1) {
+                            tools[existingIdx] = toolObj;
+                        } else {
+                            tools.push(toolObj);
+                        }
+                        count++;
+                    }
+                }
+                saveState();
+                renderToolList();
+                showToast(`${count} 件のデータをインポートしました`, 'success');
+            };
+            reader.readAsText(file);
+        }
+
+        function resetToDefaultSeedData() {
+            if (!confirm('初期データにリセットしますか？')) return;
+            tools = [...seedTools];
+            historyLogs = [];
+            saveState();
+            renderToolList();
+            renderHistoryLogs();
+            showToast('初期データにリセットされました', 'success');
+        }
+
+        // UTILITIES & TOASTS
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-message');
+            const iconBg = document.getElementById('toast-icon-bg');
+            const icon = document.getElementById('toast-icon');
+
+            msgEl.innerText = msg;
+            if (type === 'error') {
+                iconBg.className = 'w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400';
+                icon.className = 'fa-solid fa-triangle-exclamation';
+            } else {
+                iconBg.className = 'w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400';
+                icon.className = 'fa-solid fa-check';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+    </script>
+</body>
+</html>
