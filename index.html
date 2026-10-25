@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>スマート工具・備品管理アプリ (QR対応版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Library & Scanner -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+</head>
+<body class="h-full text-slate-100 flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 px-4 py-3 sticky top-0 z-30 flex items-center justify-between shadow-md">
+        <div class="flex items-center space-x-2">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow">
+                <i class="fa-solid fa-qrcode text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base md:text-lg tracking-tight">スマート工具管理</h1>
+                <p class="text-xs text-slate-400">QRコード貸出・在庫管理システム</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="openScannerModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-1.5 shadow transition">
+                <i class="fa-solid fa-camera"></i>
+                <span class="hidden sm:inline">QRスキャン貸出</span>
+            </button>
+            <button onclick="openAddToolModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-1.5 shadow transition">
+                <i class="fa-solid fa-plus"></i>
+                <span>工具追加</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 overflow-y-auto p-4 max-w-7xl w-full mx-auto space-y-6">
+
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">総工具数</div>
+                <div id="stat-total" class="text-2xl font-bold mt-1 text-slate-100">0</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
+                <div class="text-emerald-400 text-xs font-medium uppercase tracking-wider">利用可能</div>
+                <div id="stat-available" class="text-2xl font-bold mt-1 text-emerald-400">0</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
+                <div class="text-amber-400 text-xs font-medium uppercase tracking-wider">貸出中</div>
+                <div id="stat-checkout" class="text-2xl font-bold mt-1 text-amber-400">0</div>
+            </div>
+            <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl shadow-sm">
+                <div class="text-rose-400 text-xs font-medium uppercase tracking-wider">点検中</div>
+                <div id="stat-maintenance" class="text-2xl font-bold mt-1 text-rose-400">0</div>
+            </div>
+        </div>
+
+        <!-- Search & Filters -->
+        <div class="bg-slate-800 border border-slate-700/60 p-4 rounded-xl space-y-3 shadow-sm">
+            <div class="flex flex-col md:flex-row gap-3">
+                <div class="relative flex-1">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="search-input" oninput="filterTools()" placeholder="工具名、管理ID、保管場所で検索..." class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="flex gap-2">
+                    <select id="filter-category" onchange="filterTools()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 flex-1 md:w-40">
+                        <option value="">すべてのカテゴリ</option>
+                        <option value="電動工具">電動工具</option>
+                        <option value="手工具">手工具</option>
+                        <option value="測定器">測定器</option>
+                        <option value="作業台・安全具">作業台・安全具</option>
+                        <option value="その他">その他</option>
+                    </select>
+                    <select id="filter-status" onchange="filterTools()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-indigo-500 flex-1 md:w-36">
+                        <option value="">すべての状態</option>
+                        <option value="利用可能">利用可能</option>
+                        <option value="貸出中">貸出中</option>
+                        <option value="点検中">点検中</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tool Table / Grid -->
+        <div class="bg-slate-800 border border-slate-700/60 rounded-xl overflow-hidden shadow-sm">
+            <div class="px-4 py-3 border-b border-slate-700 flex justify-between items-center bg-slate-800/80">
+                <h2 class="font-bold text-sm text-slate-200">工具一覧</h2>
+                <span id="tool-count-badge" class="text-xs bg-slate-700 text-slate-300 px-2.5 py-1 rounded-full">全 0 件</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-900/50 text-slate-400 text-xs border-b border-slate-700">
+                            <th class="p-3 font-semibold">管理ID / QRコード</th>
+                            <th class="p-3 font-semibold">工具名 / カテゴリ</th>
+                            <th class="p-3 font-semibold">状態</th>
+                            <th class="p-3 font-semibold">利用者 / 保管場所</th>
+                            <th class="p-3 font-semibold text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tools-table-body" class="divide-y divide-slate-700/60">
+                        <!-- Populated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer / Actions -->
+    <footer class="bg-slate-800 border-t border-slate-700 p-4 text-center text-xs text-slate-400 flex flex-wrap justify-center gap-4">
+        <button onclick="exportCSV()" class="hover:text-white transition flex items-center gap-1"><i class="fa-solid fa-download"></i> CSVエクスポート</button>
+        <button onclick="resetData()" class="hover:text-rose-400 transition flex items-center gap-1"><i class="fa-solid fa-rotate-right"></i> 初期データに戻す</button>
+    </footer>
+
+    <!-- Add/Edit Modal -->
+    <div id="tool-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 id="modal-title" class="font-bold text-lg text-slate-100">新規工具登録</h3>
+                <button onclick="closeToolModal()" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="tool-form" onsubmit="saveTool(event)" class="space-y-4">
+                <input type="hidden" id="edit-id">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">管理ID (自動生成可)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="tool-code" required class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                        <button type="button" onclick="generateRandomId()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-2 rounded-lg text-xs font-medium">自動生成</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">工具名</label>
+                    <input type="text" id="tool-name" required placeholder="例: インパクトドライバ 18V" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">カテゴリ</label>
+                    <select id="tool-category" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                        <option value="電動工具">電動工具</option>
+                        <option value="手工具">手工具</option>
+                        <option value="測定器">測定器</option>
+                        <option value="作業台・安全具">作業台・安全具</option>
+                        <option value="その他">その他</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">保管場所</label>
+                    <input type="text" id="tool-location" placeholder="例: A棚-03" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeToolModal()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">キャンセル</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium">保存する</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 id="checkout-modal-title" class="font-bold text-lg text-slate-100">工具の貸出処理</h3>
+                <button onclick="closeCheckoutModal()" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="checkout-tool-info" class="bg-slate-900 p-3 rounded-lg text-xs text-slate-300 space-y-1">
+                <!-- Tool info preview -->
+            </div>
+            <form id="checkout-form" onsubmit="confirmCheckout(event)" class="space-y-4">
+                <input type="hidden" id="checkout-tool-code">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">利用者氏名</label>
+                    <input type="text" id="checkout-user" required placeholder="例: 山田 太郎" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">持ち出し先 / 現場名</label>
+                    <input type="text" id="checkout-purpose" required placeholder="例: A工事現場 / メンテナンス" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="closeCheckoutModal()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">キャンセル</button>
+                    <button type="submit" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium">貸出を実行する</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- QR Code View Modal -->
+    <div id="qr-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-sm w-full p-6 shadow-2xl text-center space-y-4">
+            <h3 id="qr-tool-title" class="font-bold text-base text-slate-100">工具名</h3>
+            <div class="bg-white p-4 rounded-lg inline-block shadow-inner">
+                <div id="qrcode-container" class="flex justify-center"></div>
+            </div>
+            <p id="qr-tool-id" class="text-xs font-mono text-slate-400"></p>
+            <div class="flex justify-center space-x-3 pt-2">
+                <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium"><i class="fa-solid fa-print"></i> 印刷する</button>
+                <button onclick="closeQrModal()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Camera Scanner Modal -->
+    <div id="scanner-modal" class="fixed inset-0 bg-black/90 z-50 hidden flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-base text-slate-100"><i class="fa-solid fa-camera text-indigo-400"></i> QRコードスキャン</h3>
+                <button onclick="closeScannerModal()" class="text-slate-400 hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="reader" class="w-full rounded-lg overflow-hidden bg-black aspect-square"></div>
+            <p class="text-xs text-center text-slate-400">工具に貼られたQRコードをカメラに向けてください</p>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        let tools = JSON.parse(localStorage.getItem('smart_tools_data')) || [
+            { id: 'T-001', name: 'インパクトドライバ 18V', category: '電動工具', status: '利用可能', user: '', location: 'A棚-01' },
+            { id: 'T-002', name: 'トルクレンチ', category: '測定器', status: '貸出中', user: '鈴木 一郎', location: 'A棚-02' },
+            { id: 'T-003', name: '丸のこ 165mm', category: '電動工具', status: '利用可能', user: '', location: 'B棚-01' },
+            { id: 'T-004', name: 'パイプレンチ', category: '手工具', status: '点検中', user: '', location: 'C棚-03' }
+        ];
+
+        let html5QrCode = null;
+
+        function saveToStorage() {
+            localStorage.setItem('smart_tools_data', JSON.stringify(tools));
+        }
+
+        function render() {
+            const tbody = document.getElementById('tools-table-body');
+            tbody.innerHTML = '';
+
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const catFilter = document.getElementById('filter-category').value;
+            const statusFilter = document.getElementById('filter-status').value;
+
+            let total = tools.length;
+            let available = 0;
+            let checkout = 0;
+            let maintenance = 0;
+
+            const filtered = tools.filter(t => {
+                if (t.status === '利用可能') available++;
+                else if (t.status === '貸出中') checkout++;
+                else if (t.status === '点検中') maintenance++;
+
+                const matchSearch = t.name.toLowerCase().includes(searchTerm) || t.id.toLowerCase().includes(searchTerm) || t.location.toLowerCase().includes(searchTerm);
+                const matchCat = !catFilter || t.category === catFilter;
+                const matchStatus = !statusFilter || t.status === statusFilter;
+                return matchSearch && matchCat && matchStatus;
+            });
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-available').textContent = available;
+            document.getElementById('stat-checkout').textContent = checkout;
+            document.getElementById('stat-maintenance').textContent = maintenance;
+            document.getElementById('tool-count-badge').textContent = `全 ${filtered.length} 件`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">該当する工具がありません</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(tool => {
+                let statusBadge = '';
+                if (tool.status === '利用可能') statusBadge = '<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-xs font-medium">利用可能</span>';
+                else if (tool.status === '貸出中') statusBadge = '<span class="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded text-xs font-medium">貸出中</span>';
+                else statusBadge = '<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded text-xs font-medium">点検中</span>';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-700/30 transition";
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-xs text-indigo-400 font-semibold cursor-pointer" onclick="openQrModal('${tool.id}')">${tool.id} <i class="fa-solid fa-qrcode text-slate-400 ml-1"></i></td>
+                    <td class="p-3">
+                        <div class="font-medium text-slate-100">${tool.name}</div>
+                        <div class="text-xs text-slate-400">${tool.category}</div>
+                    </td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3 text-xs text-slate-300">
+                        ${tool.status === '貸出中' ? `<span class="text-amber-300 font-medium">${tool.user}</span>` : `<span class="text-slate-400">${tool.location}</span>`}
+                    </td>
+                    <td class="p-3 text-right space-x-1">
+                        ${tool.status === '利用可能' ? 
+                            `<button onclick="openCheckoutModal('${tool.id}')" class="bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded text-xs font-medium shadow transition">貸出</button>` :
+                          tool.status === '貸出中' ? 
+                            `<button onclick="returnTool('${tool.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded text-xs font-medium shadow transition">返却</button>` : ''
+                        }
+                        <button onclick="openEditToolModal('${tool.id}')" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2 py-1 rounded text-xs"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteTool('${tool.id}')" class="bg-slate-700 hover:bg-rose-600 text-slate-200 px-2 py-1 rounded text-xs transition"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTools() { render(); }
+
+        function generateRandomId() {
+            const randomNum = Math.floor(100 + Math.random() * 900);
+            document.getElementById('tool-code').value = `T-${randomNum}`;
+        }
+
+        function openAddToolModal() {
+            document.getElementById('modal-title').textContent = '新規工具登録';
+            document.getElementById('edit-id').value = '';
+            document.getElementById('tool-code').value = `T-${Math.floor(100 + Math.random() * 900)}`;
+            document.getElementById('tool-name').value = '';
+            document.getElementById('tool-category').value = '電動工具';
+            document.getElementById('tool-location').value = '';
+            document.getElementById('tool-modal').classList.remove('hidden');
+        }
+
+        function openEditToolModal(id) {
+            const tool = tools.find(t => t.id === id);
+            if (!tool) return;
+            document.getElementById('modal-title').textContent = '工具情報の編集';
+            document.getElementById('edit-id').value = tool.id;
+            document.getElementById('tool-code').value = tool.id;
+            document.getElementById('tool-name').value = tool.name;
+            document.getElementById('tool-category').value = tool.category;
+            document.getElementById('tool-location').value = tool.location;
+            document.getElementById('tool-modal').classList.remove('hidden');
+        }
+
+        function closeToolModal() {
+            document.getElementById('tool-modal').classList.add('hidden');
+        }
+
+        function saveTool(e) {
+            e.preventDefault();
+            const editId = document.getElementById('edit-id').value;
+            const code = document.getElementById('tool-code').value;
+            const name = document.getElementById('tool-name').value;
+            const category = document.getElementById('tool-category').value;
+            const location = document.getElementById('tool-location').value;
+
+            if (editId) {
+                const tool = tools.find(t => t.id === editId);
+                if (tool) {
+                    tool.id = code;
+                    tool.name = name;
+                    tool.category = category;
+                    tool.location = location;
+                }
+            } else {
+                if (tools.some(t => t.id === code)) {
+                    alert('すでに存在する管理IDです。');
+                    return;
+                }
+                tools.push({ id: code, name, category, status: '利用可能', user: '', location });
+            }
+
+            saveToStorage();
+            closeToolModal();
+            render();
+        }
+
+        function deleteTool(id) {
+            if (confirm(`管理ID: ${id} の工具を削除してもよろしいですか？`)) {
+                tools = tools.filter(t => t.id !== id);
+                saveToStorage();
+                render();
+            }
+        }
+
+        function openCheckoutModal(id) {
+            const tool = tools.find(t => t.id === id);
+            if (!tool) return;
+            document.getElementById('checkout-tool-code').value = tool.id;
+            document.getElementById('checkout-tool-info').innerHTML = `<strong>${tool.name}</strong> (ID: ${tool.id}) / 保管場所: ${tool.location}`;
+            document.getElementById('checkout-user').value = '';
+            document.getElementById('checkout-purpose').value = '';
+            document.getElementById('checkout-modal').classList.remove('hidden');
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkout-modal').classList.add('hidden');
+        }
+
+        function confirmCheckout(e) {
+            e.preventDefault();
+            const code = document.getElementById('checkout-tool-code').value;
+            const user = document.getElementById('checkout-user').value;
+            const tool = tools.find(t => t.id === code);
+            if (tool) {
+                tool.status = '貸出中';
+                tool.user = user;
+                saveToStorage();
+                closeCheckoutModal();
+                render();
+            }
+        }
+
+        function returnTool(id) {
+            const tool = tools.find(t => t.id === id);
+            if (tool && confirm(`${tool.name} を返却済みにしますか？`)) {
+                tool.status = '利用可能';
+                tool.user = '';
+                saveToStorage();
+                render();
+            }
+        }
+
+        function openQrModal(id) {
+            const tool = tools.find(t => t.id === id);
+            if (!tool) return;
+            document.getElementById('qr-tool-title').textContent = tool.name;
+            document.getElementById('qr-tool-id').textContent = tool.id;
+            
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = '';
+            new QRCode(container, {
+                text: tool.id,
+                width: 160,
+                height: 160,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('qr-modal').classList.remove('hidden');
+        }
+
+        function closeQrModal() {
+            document.getElementById('qr-modal').classList.add('hidden');
+        }
+
+        function openScannerModal() {
+            document.getElementById('scanner-modal').classList.remove('hidden');
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 15, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    closeScannerModal();
+                    if (html5QrCode) html5QrCode.stop();
+                    handleScannedCode(decodedText);
+                },
+                (error) => {}
+            ).catch(err => {
+                alert('カメラの起動に失敗しました。カメラの利用権限を許可してください。');
+                closeScannerModal();
+            });
+        }
+
+        function closeScannerModal() {
+            document.getElementById('scanner-modal').classList.add('hidden');
+            if (html5QrCode) {
+                html5QrCode.stop().catch(() => {});
+            }
+        }
+
+        function handleScannedCode(code) {
+            const tool = tools.find(t => t.id === code);
+            if (!tool) {
+                alert(`スキャンされたID "${code}" に一致する工具が見つかりませんでした。`);
+                return;
+            }
+            if (tool.status === '利用可能') {
+                openCheckoutModal(tool.id);
+            } else if (tool.status === '貸出中') {
+                returnTool(tool.id);
+            } else {
+                alert(`この工具は現在「${tool.status}」です。`);
+            }
+        }
+
+        function exportCSV() {
+            let csv = '\ufeff管理ID,工具名,カテゴリ,状態,利用者,保管場所\n';
+            tools.forEach(t => {
+                csv += `"${t.id}","${t.name}","${t.category}","${t.status}","${t.user || ''}","${t.location}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tools_export_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+        }
+
+        function resetData() {
+            if (confirm('すべてのデータを初期状態に戻しますか？')) {
+                localStorage.removeItem('smart_tools_data');
+                location.reload();
+            }
+        }
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>
